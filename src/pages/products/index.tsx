@@ -1,21 +1,69 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Plus, Search, MoreHorizontal, Pencil, Trash2, ToggleLeft, Package } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, Pencil, Package, ToggleLeft, Trash2 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { mockProducts, mockCategories } from '@/lib/mock-data'
+import { useToast } from '@/components/ui/use-toast'
 import type { Product } from '@/types'
 
-function ProductFormModal({ product, open, onClose }: { product?: Product; open: boolean; onClose: () => void }) {
+interface Category {
+  id: string
+  name: string
+}
+
+interface ProductFormModalProps {
+  product?: Product
+  categories: Category[]
+  open: boolean
+  onClose: () => void
+  onSaved: () => void
+}
+
+function ProductFormModal({ product, categories, open, onClose, onSaved }: ProductFormModalProps) {
+  const { toast } = useToast()
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [price, setPrice] = useState('')
+  const [unit, setUnit] = useState('cành')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setName(product?.name ?? '')
+      setDescription(product?.description ?? '')
+      setCategoryId(product?.category_id ?? '')
+      setPrice(product?.price ? String(product.price) : '')
+      setUnit(product?.unit ?? 'cành')
+    }
+  }, [open, product])
+
+  async function handleSave() {
+    if (!name.trim()) return toast({ title: 'Thiếu tên sản phẩm', variant: 'destructive' })
+    if (!price || isNaN(Number(price))) return toast({ title: 'Giá không hợp lệ', variant: 'destructive' })
+    setSaving(true)
+    const body = { name, description: description || null, category_id: categoryId || null, price: Number(price), unit }
+    const res = product
+      ? await fetch(`/api/products/${product.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      : await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const json = await res.json()
+    setSaving(false)
+    if (!res.ok) return toast({ title: json.error ?? 'Lỗi', variant: 'destructive' })
+    toast({ title: product ? 'Đã cập nhật sản phẩm' : 'Đã thêm sản phẩm' })
+    onSaved()
+    onClose()
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
@@ -25,21 +73,21 @@ function ProductFormModal({ product, open, onClose }: { product?: Product; open:
         <div className="space-y-4">
           <div className="space-y-1">
             <Label>Tên sản phẩm *</Label>
-            <Input placeholder="Hoa hồng đỏ nhập khẩu" defaultValue={product?.name} />
+            <Input placeholder="Hoa hồng đỏ nhập khẩu" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Danh mục</Label>
-              <Select defaultValue={product?.category_id || ''}>
+              <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger><SelectValue placeholder="Chọn danh mục" /></SelectTrigger>
                 <SelectContent>
-                  {mockCategories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label>Đơn vị *</Label>
-              <Select defaultValue={product?.unit || 'cành'}>
+              <Select value={unit} onValueChange={setUnit}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cành">Cành</SelectItem>
@@ -53,17 +101,17 @@ function ProductFormModal({ product, open, onClose }: { product?: Product; open:
           </div>
           <div className="space-y-1">
             <Label>Giá bán (VNĐ) *</Label>
-            <Input type="number" placeholder="15000" defaultValue={product?.price} />
+            <Input type="number" placeholder="15000" value={price} onChange={e => setPrice(e.target.value)} />
           </div>
           <div className="space-y-1">
             <Label>Mô tả</Label>
-            <Textarea placeholder="Mô tả ngắn về sản phẩm..." defaultValue={product?.description} rows={2} />
+            <Textarea placeholder="Mô tả ngắn về sản phẩm..." value={description} onChange={e => setDescription(e.target.value)} rows={2} />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Huỷ</Button>
-          <Button className="bg-rose-600 hover:bg-rose-700" onClick={onClose}>
-            {product ? 'Lưu thay đổi' : 'Thêm sản phẩm'}
+          <Button variant="outline" onClick={onClose} disabled={saving}>Huỷ</Button>
+          <Button className="bg-rose-600 hover:bg-rose-700" onClick={handleSave} disabled={saving}>
+            {saving ? 'Đang lưu...' : product ? 'Lưu thay đổi' : 'Thêm sản phẩm'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -72,12 +120,49 @@ function ProductFormModal({ product, open, onClose }: { product?: Product; open:
 }
 
 export default function ProductsPage() {
+  const { toast } = useToast()
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | undefined>()
 
-  const filtered = mockProducts.filter(p => {
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    const [prodRes, catRes] = await Promise.all([
+      fetch('/api/products'),
+      fetch('/api/categories'),
+    ])
+    const [prodJson, catJson] = await Promise.all([prodRes.json(), catRes.json()])
+    setProducts(prodJson.data ?? [])
+    setCategories(catJson.data ?? [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  async function handleToggleActive(product: Product) {
+    const res = await fetch(`/api/products/${product.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !product.is_active }),
+    })
+    if (!res.ok) return toast({ title: 'Lỗi cập nhật', variant: 'destructive' })
+    toast({ title: product.is_active ? 'Đã ngừng bán sản phẩm' : 'Đã kích hoạt sản phẩm' })
+    fetchData()
+  }
+
+  async function handleDelete(product: Product) {
+    if (!confirm(`Xoá sản phẩm "${product.name}"?`)) return
+    const res = await fetch(`/api/products/${product.id}`, { method: 'DELETE' })
+    if (!res.ok) return toast({ title: 'Lỗi xoá sản phẩm', variant: 'destructive' })
+    toast({ title: 'Đã xoá sản phẩm' })
+    fetchData()
+  }
+
+  const filtered = products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase())
     const matchCat = categoryFilter === 'all' || p.category_id === categoryFilter
     return matchSearch && matchCat
@@ -86,24 +171,28 @@ export default function ProductsPage() {
   return (
     <DashboardLayout title="Sản phẩm" subtitle="Quản lý danh mục hoa và sản phẩm">
       <div className="flex flex-col gap-4">
-        {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Tổng sản phẩm', value: mockProducts.length, color: 'text-blue-600 bg-blue-50' },
-            { label: 'Đang bán', value: mockProducts.filter(p => p.is_active).length, color: 'text-green-600 bg-green-50' },
-            { label: 'Danh mục', value: mockCategories.length, color: 'text-purple-600 bg-purple-50' },
-            { label: 'Ngừng bán', value: mockProducts.filter(p => !p.is_active).length, color: 'text-slate-500 bg-slate-100' },
-          ].map((s) => (
-            <Card key={s.label}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className={`text-2xl font-bold ${s.color.split(' ')[0]}`}>{s.value}</div>
-                <div className="text-xs text-slate-500 leading-tight">{s.label}</div>
-              </CardContent>
-            </Card>
-          ))}
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}><CardContent className="p-4"><Skeleton className="h-10 w-full" /></CardContent></Card>
+            ))
+          ) : (
+            [
+              { label: 'Tổng sản phẩm', value: products.length, color: 'text-blue-600' },
+              { label: 'Đang bán', value: products.filter(p => p.is_active).length, color: 'text-green-600' },
+              { label: 'Danh mục', value: categories.length, color: 'text-purple-600' },
+              { label: 'Ngừng bán', value: products.filter(p => !p.is_active).length, color: 'text-slate-500' },
+            ].map(s => (
+              <Card key={s.label}>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-xs text-slate-500 leading-tight">{s.label}</div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
 
-        {/* Toolbar */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -113,7 +202,7 @@ export default function ProductsPage() {
             <SelectTrigger className="w-44"><SelectValue placeholder="Tất cả danh mục" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả danh mục</SelectItem>
-              {mockCategories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button className="bg-rose-600 hover:bg-rose-700" onClick={() => { setEditProduct(undefined); setShowForm(true) }}>
@@ -121,7 +210,6 @@ export default function ProductsPage() {
           </Button>
         </div>
 
-        {/* Table */}
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -137,7 +225,15 @@ export default function ProductsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(product => (
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 7 }).map((__, j) => (
+                        <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : filtered.map(product => (
                   <TableRow key={product.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -176,11 +272,11 @@ export default function ProductsPage() {
                           <DropdownMenuItem onClick={() => { setEditProduct(product); setShowForm(true) }}>
                             <Pencil className="w-4 h-4 mr-2" /> Chỉnh sửa
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleToggleActive(product)}>
                             <ToggleLeft className="w-4 h-4 mr-2" />
                             {product.is_active ? 'Ngừng bán' : 'Kích hoạt'}
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600 focus:text-red-600">
+                          <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleDelete(product)}>
                             <Trash2 className="w-4 h-4 mr-2" /> Xoá
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -190,11 +286,14 @@ export default function ProductsPage() {
                 ))}
               </TableBody>
             </Table>
+            {!loading && filtered.length === 0 && (
+              <p className="text-sm text-slate-400 text-center py-10">Không tìm thấy sản phẩm</p>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <ProductFormModal product={editProduct} open={showForm} onClose={() => setShowForm(false)} />
+      <ProductFormModal product={editProduct} categories={categories} open={showForm} onClose={() => setShowForm(false)} onSaved={fetchData} />
     </DashboardLayout>
   )
 }

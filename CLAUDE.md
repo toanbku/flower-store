@@ -12,8 +12,11 @@ Mỗi khi có thay đổi database (thêm table, thêm cột, thêm index, v.v.)
 
 ```
 NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY   # client-side
+SUPABASE_SERVICE_ROLE_KEY              # server-side API routes only, bypasses RLS
 ```
+
+API routes dùng `src/lib/supabase-admin.ts` (service role key). Client-side dùng `src/lib/supabase.ts` (publishable key).
 
 ## Stack
 

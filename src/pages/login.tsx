@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('admin@hoaxinh.vn')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -18,16 +19,18 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    // Demo: bypass auth and go to dashboard
-    await new Promise(r => setTimeout(r, 800))
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
+    if (authError) {
+      setError('Email hoặc mật khẩu không đúng')
+      return
+    }
     router.push('/')
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-pink-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-rose-500 rounded-2xl flex items-center justify-center shadow-lg mb-4">
             <Flower2 className="w-9 h-9 text-white" />
@@ -48,7 +51,7 @@ export default function LoginPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@hoaxinh.vn"
+                  placeholder="email@hoaxinh.vn"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
@@ -75,13 +78,10 @@ export default function LoginPage() {
                 </div>
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full bg-rose-600 hover:bg-rose-700" disabled={loading}>
                 {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               </Button>
             </form>
-            <p className="text-center text-xs text-slate-400 mt-4">
-              Demo: nhấn đăng nhập để truy cập hệ thống
-            </p>
           </CardContent>
         </Card>
       </div>

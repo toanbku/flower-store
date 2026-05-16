@@ -5,7 +5,8 @@ import {
   Users, Truck, BarChart3, LogOut, Flower2, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import type { User } from '@supabase/supabase-js'
 
 const navItems = [
   { href: '/', label: 'Tổng quan', icon: LayoutDashboard },
@@ -17,18 +18,35 @@ const navItems = [
   { href: '/reports', label: 'Báo cáo', icon: BarChart3 },
 ]
 
+function getInitials(name: string) {
+  const parts = name.trim().split(' ').filter(Boolean)
+  if (parts.length === 1) return parts[0][0].toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 interface SidebarProps {
   collapsed: boolean
   onToggle: () => void
+  user: User | null
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, user }: SidebarProps) {
   const router = useRouter()
+
+  const displayName = user?.user_metadata?.full_name
+    || user?.email?.split('@')[0]
+    || 'Người dùng'
+  const initials = getInitials(displayName)
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   return (
     <aside
       className={cn(
-        'flex flex-col h-screen bg-slate-900 text-white transition-all duration-300 ease-in-out',
+        'flex flex-col h-screen bg-slate-900 text-white transition-all duration-300 ease-in-out flex-shrink-0',
         collapsed ? 'w-16' : 'w-60'
       )}
     >
@@ -46,7 +64,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 overflow-y-auto scrollbar-hide">
+      <nav className="flex-1 py-4 overflow-y-auto">
         <ul className="space-y-1 px-2">
           {navItems.map((item) => {
             const Icon = item.icon
@@ -74,18 +92,36 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-slate-700 p-2">
-        {!collapsed && (
-          <div className="flex items-center gap-3 px-3 py-2 mb-1">
+      <div className="border-t border-slate-700 p-2 space-y-1">
+        {/* User info */}
+        {!collapsed ? (
+          <div className="flex items-center gap-3 px-3 py-2">
             <div className="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-              H
+              {initials}
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-medium text-white truncate">Hương Lê</p>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-medium text-white truncate">{displayName}</p>
               <p className="text-xs text-slate-400">Quản lý</p>
             </div>
+            <button
+              onClick={handleLogout}
+              className="text-slate-400 hover:text-white transition-colors p-1 rounded"
+              title="Đăng xuất"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
+        ) : (
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center py-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            title="Đăng xuất"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         )}
+
+        {/* Collapse toggle */}
         <button
           onClick={onToggle}
           className={cn(
