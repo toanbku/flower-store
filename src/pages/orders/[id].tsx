@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Printer, MapPin, Calendar, Phone, User, CreditCard, Package } from 'lucide-react'
+import { ArrowLeft, Printer, MapPin, Calendar, Phone, User, CreditCard, Package, QrCode } from 'lucide-react'
+import { PaymentQR } from '@/components/PaymentQR'
 import { formatCurrency, formatDateTime, ORDER_STATUS_MAP, PAYMENT_STATUS_MAP, PAYMENT_METHOD_MAP, DELIVERY_TYPE_MAP } from '@/lib/utils'
 import { toast } from '@/components/ui/use-toast'
 import type { Order, OrderStatus, PaymentStatus, PaymentMethod } from '@/types'
@@ -316,6 +317,20 @@ export default function OrderDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Payment QR */}
+            {order.payment_method === 'transfer' && order.payment_status !== 'paid' && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2">
+                    <QrCode className="w-4 h-4" /> QR Thanh toán
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PaymentQR orderNumber={order.order_number} amount={order.total} />
+                </CardContent>
+              </Card>
+            )}
 
             {/* Meta */}
             <Card>

@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Plus, Search, MoreHorizontal, Eye, Trash2 } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, Eye, Trash2, QrCode } from 'lucide-react'
+import { PaymentQR } from '@/components/PaymentQR'
 import { formatCurrency, formatDateTime, ORDER_STATUS_MAP, PAYMENT_STATUS_MAP, DELIVERY_TYPE_MAP } from '@/lib/utils'
 import { toast } from '@/components/ui/use-toast'
 import type { Order, OrderStatus, Customer, Product } from '@/types'
@@ -73,6 +74,7 @@ function NewOrderModal({ open, onClose, onCreated }: {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState('') // '' = khách lẻ
+  const [createdOrder, setCreatedOrder] = useState<{ order_number: string; total: number } | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -120,6 +122,7 @@ function NewOrderModal({ open, onClose, onCreated }: {
     setForm(EMPTY_FORM)
     setItems([{ product_id: '', product_name: '', quantity: 1, unit_price: 0 }])
     setSelectedCustomerId('')
+    setCreatedOrder(null)
     onClose()
   }
 
@@ -136,9 +139,13 @@ function NewOrderModal({ open, onClose, onCreated }: {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Tạo đơn thất bại')
-      toast({ title: 'Tạo đơn hàng thành công', variant: 'success' })
-      handleClose()
       onCreated()
+      if (form.payment_method === 'transfer') {
+        setCreatedOrder({ order_number: json.data.order_number, total: json.data.total })
+      } else {
+        toast({ title: 'Tạo đơn hàng thành công', variant: 'success' })
+        handleClose()
+      }
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -152,10 +159,21 @@ function NewOrderModal({ open, onClose, onCreated }: {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Tạo đơn hàng mới</DialogTitle>
+          <DialogTitle>
+            {createdOrder ? 'QR Thanh toán' : 'Tạo đơn hàng mới'}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {createdOrder ? (
+          <div className="py-4 space-y-4">
+            <p className="text-center text-sm text-slate-600">
+              Đơn hàng <span className="font-semibold text-slate-900">#{createdOrder.order_number}</span> đã tạo thành công.
+              Cho khách quét mã QR hoặc chuyển khoản theo thông tin bên dưới.
+            </p>
+            <PaymentQR orderNumber={createdOrder.order_number} amount={createdOrder.total} />
+          </div>
+        ) : (
+          <div className="space-y-4">
           {/* Customer select */}
           <div className="space-y-1">
             <Label>Khách hàng</Label>
@@ -293,12 +311,21 @@ function NewOrderModal({ open, onClose, onCreated }: {
             <Textarea placeholder="Yêu cầu đặc biệt, nội dung thiệp..." rows={2} value={form.note} onChange={e => set('note', e.target.value)} />
           </div>
         </div>
+        )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={saving}>Huỷ</Button>
-          <Button className="bg-rose-600 hover:bg-rose-700" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Đang tạo...' : 'Tạo đơn hàng'}
-          </Button>
+          {createdOrder ? (
+            <Button className="bg-rose-600 hover:bg-rose-700" onClick={handleClose}>
+              Đóng
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={handleClose} disabled={saving}>Huỷ</Button>
+              <Button className="bg-rose-600 hover:bg-rose-700" onClick={handleSubmit} disabled={saving}>
+                {saving ? 'Đang tạo...' : 'Tạo đơn hàng'}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
